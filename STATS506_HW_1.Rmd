@@ -1,0 +1,23 @@
+---
+title: "STATS506_HW1"
+author: "Xuchen Liu"
+date: "2023-09-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Import data
+data <- read.table('wine.data', header = FALSE, sep = ",")
+#Change col name
+new_col_names <- c(
+  "Class", "Alcohol", "Malic acid", "Ash",
+  "Alcalinity of ash", "Magnesium", "Total phenols", "Flavanoids",
+  "Nonflavanoid phenols", "Proanthocyanins", "Color intensity", "Hue",
+  "OD280/OD315 of diluted wines", "Proline"
+)
+colnames(data) <- new_col_names
+```
