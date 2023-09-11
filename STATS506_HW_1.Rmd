@@ -9,6 +9,8 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+# Problem 1 - Wine data
 ```{r}
 #Import data
 data <- read.table('wine.data', header = FALSE, sep = ",")
@@ -21,3 +23,355 @@ new_col_names <- c(
 )
 colnames(data) <- new_col_names
 ```
+
+## (C) Use the data to answer the following questions:
+### (1) The wine with the highest alcohol content belongs to which class?
+```{r}
+highest_alcohol <- which.max(data$Alcohol)
+
+highest_aclcohol_class <- data$Class[highest_alcohol]
+
+cat("The wine has the highest alcohol belongs to Class", highest_aclcohol_class)
+```
+
+### (2) The wine with the lowest alcohol content belongs to which class?
+```{r}
+lowest_alcohol <- which.min(data$Alcohol)
+
+lowest_aclcohol_class <- data$Class[lowest_alcohol]
+
+cat("The wine has the lowest alcohol belongs to Class", lowest_aclcohol_class)
+```
+
+### (3) German beers have, on average, 114 mg/l of magnesium. How many of these wines have higher levels of magnesium than that? (You may assume that the magnesium reported in the data is in the same units.)
+```{r}
+magnesium_above114 <- data$Magnesium > 114
+
+cat("The number of wines have higher levels of magnesium than German beers is:", sum(magnesium_above114))
+```
+
+### (4) Within each class, how many wines have higher levels of magnesium than average German beer?
+```{r}
+c4 <- aggregate(Magnesium ~ Class, data = data, FUN = function(x) sum(x > 114))
+
+colnames(c4) <- c("Class", "Above_Average_German_beer")
+
+print(c4)
+```
+
+## (D) Create a table identifying the average value of each variable, providing one row for the overall average, and one row per class with class averages.
+```{r}
+overall_avg <- c(NaN, colMeans(data[, -1])) 
+class_avg <- aggregate(. ~ Class, data = data, FUN = mean)
+table_avg <-rbind(Overall_Average = overall_avg, Class_Average = class_avg)
+print(table_avg)
+```
+
+## (E) Carry out a series of t-tests to examine whether the level of Ash differs across the three classes. Present the R output and interpret the results.
+```{r}
+paired_class <- combn(unique(data$Class), 2)
+
+for (i in 1:ncol(paired_class)) {
+  c1 <- paired_class[1, i]
+  c2 <- paired_class[2, i]
+  
+  s1 <- data$Ash[data$Class == c1]
+  s2 <- data$Ash[data$Class == c2]
+  
+  result <- t.test(s1, s2)
+  
+  cat("T-test for Class", c1, "vs. Class", c2, ":\n")
+  cat("   p-value:", result$p.value, "\n")
+  cat("\n")
+}
+```
+#### Null hypothesis is there is no significant difference between two class, based on the results, we can conclude that the level of Ash between Class 1 and Class 2 has significant different, and the level of Ash between Class 2 and Class 3 has significant different
+
+# Problem 2 - Perfect Powers
+## Part(a)
+```{r}
+isPerfectPower <- function(x, power) {
+  root <- round(x^(1/power))
+  
+  if (root^power == x) {
+    return(list(isPerfect = TRUE, root = root))
+  } else {
+    return(list(isPerfect = FALSE, root = NA))
+  }
+}
+```
+
+## Part(b)
+```{r}
+findRootPower <- function(x) {
+  for (power in 2:100) {  
+    result <- isPerfectPower(x, power)
+    if (result$isPerfect) {
+      return(paste(x, "=", result$root, "^", power))
+    }
+  }
+  return(paste(x, "is not a perfect power."))
+}
+```
+
+### Test in Part(b)
+```{r}
+print(findRootPower(27))
+print(findRootPower(13060694016))
+print(findRootPower(7776))
+print(findRootPower(170859375))
+print(findRootPower(58247422))
+print(findRootPower(94143178827))
+```
+
+# Problem 3 - ChatGPT
+```{r}
+# Function to determine the name of a 5-card hand in 5-card stud poker
+determinePokerHand <- function(suits, ranks) {
+  # Check for a flush (all cards of the same suit)
+  if (length(unique(suits)) == 1) {
+    flush <- TRUE
+    suit <- unique(suits)
+  } else {
+    flush <- FALSE
+    suit <- NULL
+  }
+  
+  # Count the frequency of each rank
+  rank_counts <- table(ranks)
+  
+  # Check for four of a kind (four cards with the same rank)
+  if (any(rank_counts == 4)) {
+    return("Four of a Kind")
+  }
+  
+  # Check for a full house (three cards with one rank and two cards with another rank)
+  if (any(rank_counts == 3) && any(rank_counts == 2)) {
+    return("Full House")
+  }
+  
+  # Check for a flush
+  if (flush) {
+    return("Flush")
+  }
+  
+  # Check for three of a kind (three cards with the same rank)
+  if (any(rank_counts == 3)) {
+    return("Three of a Kind")
+  }
+  
+  # Check for two pair (two cards with one rank and two cards with another rank)
+  if (sum(rank_counts == 2) == 4) {
+    return("Two Pair")
+  }
+  
+  # Check for one pair (two cards with the same rank)
+  if (any(rank_counts == 2)) {
+    return("One Pair")
+  }
+  
+  # If none of the above conditions are met, it's a high card hand
+  return("High Card")
+}
+
+# Function to simulate dealing a poker round with a specified number of players.
+dealPokerRound <- function(num_players) {
+  # Define the suits and ranks of the cards
+  suits <- c("Hearts", "Diamonds", "Clubs", "Spades")
+  ranks <- c("2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace")
+  
+  deck <- expand.grid(rank = ranks, suit = suits)
+  
+  # Initialize an empty list to store each player's hand
+  hands <- list()
+  
+  # Deal unique cards to each player
+  for (i in 1:num_players) {
+    # Randomly sample 5 unique cards from the deck
+    player_indices <- sample(1:nrow(deck), size = 5, replace = FALSE)
+    player_hand <- deck[player_indices, ]
+    
+    
+    
+    # Remove the dealt cards from the deck
+    deck <- deck[-player_indices, ]
+    
+    hands[[i]] <- player_hand
+  }
+  
+  # Loop through each player's hand, determine the hand name, and print the result
+  for (i in 1:num_players) {
+    player_hand <- hands[[i]]
+    player_suits <- player_hand$suit
+    player_ranks <- player_hand$rank
+    
+    # Determine the name of the poker hand for the player's cards
+    hand_name <- determinePokerHand(player_suits, player_ranks)
+    
+    # Print the player's hand name
+    cat("Player", i, "Hand:", paste(player_ranks, player_suits), "->", hand_name, "\n")
+  }
+}
+
+```
+
+## Part(b) 
+### Test the first function
+```{r,warning=FALSE}
+# Test case 1
+suits1 <- c("Hearts", "Hearts", "Hearts", "Hearts", "Hearts")
+ranks1 <- c("Ace", "King", "Queen", "Jack", "Ten")
+```
+### Test the second function
+```{r, warning=FALSE}
+# Test case 1
+cat("Test case 1:\n")
+dealPokerRound(2)
+cat("\n-------------------\n")
+```
+### Based on the results, the code works correctly.
+
+## Part(c) 
+### Explain the code line-by-line
+```{r, warning=FALSE}
+# Create function and make sure the variables
+determinePokerHand <- function(suits, ranks) {
+  
+  # Check if all the values in suits are same. If they are, flush = True, otherwise, flush = FALSE
+  if (length(unique(suits)) == 1) {
+    flush <- TRUE
+    suit <- unique(suits)
+  } else {
+    flush <- FALSE
+    suit <- NULL
+  }
+  
+  # Check a table to calculate the number of cards of each rank in hand
+  rank_counts <- table(ranks)
+
+  # If there is a suit with count of 4, return "Four of a kind"
+  if (any(rank_counts == 4)) {
+    return("Four of a Kind")
+  }
+  
+  # If there is a suit with count of 3 and another suit with count of 2, return "Full House"
+  if (any(rank_counts == 3) && any(rank_counts == 2)) {
+    return("Full House")
+  }
+  
+  # If all cards have same suit, return "Flush"
+  if (flush) {
+    return("Flush")
+  }
+  
+  # If there is a suit with count of 3, return "Three of a kind"
+  if (any(rank_counts == 3)) {
+    return("Three of a Kind")
+  }
+  
+  # If there are exactly 2 suit have 2 count each, return "Two Pair"
+  if (sum(rank_counts == 2) == 2) {
+    return("Two Pair")
+  }
+  
+  # If there is a suit with 2 count, return "One Pair"
+  if (any(rank_counts == 2)) {
+    return("One Pair")
+  }
+  
+  # None of above, return "High Card"
+  return("High Card")
+}
+
+# Define the input variable
+dealPokerRound <- function(num_players) {
+  
+  # Define all kinds of possible suits and ranks
+  suits <- c("Hearts", "Diamonds", "Clubs", "Spades")
+  ranks <- c("2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace")
+  
+  # Generate all possible combination
+  deck <- expand.grid(rank = ranks, suit = suits)
+  
+  # Generate a empty list to store the values
+  hands <- list()
+  
+  # Deal unique cards to each player
+  for (i in 1:num_players) {
+    
+    # Randomly choose 5 unique cards from the deck
+    player_indices <- sample(1:nrow(deck), size = 5, replace = FALSE)
+    player_hand <- deck[player_indices, ]
+    
+    # Remove the cards that are already used
+    deck <- deck[-player_indices, ]
+    
+    hands[[i]] <- player_hand
+  }
+  
+  # Use for loop to determine the results of each player
+  for (i in 1:num_players) {
+    player_hand <- hands[[i]]
+    player_suits <- player_hand$suit
+    player_ranks <- player_hand$rank
+    
+    # Determine the name of pokers
+    hand_name <- determinePokerHand(player_suits, player_ranks)
+    
+    # Print the player's hand name
+    cat("Player", i, "Hand:", paste(player_ranks, player_suits), "->", hand_name, "\n")
+  }
+}
+```
+
+## Part(d) 
+### Test the first function
+```{r,warning=FALSE}
+set.seed(1)
+# Test case 1
+suits1 <- c("Hearts", "Hearts", "Hearts", "Hearts", "Hearts")
+ranks1 <- c("Ace", "King", "Queen", "Jack", "Ten")
+
+hand1 <- determinePokerHand(suits1, ranks1)
+cat("Hand 1:", hand1, "\n")  # Expected output: "Flush"
+
+# Test case 2
+suits2 <- c("Hearts", "Clubs", "Diamonds", "Spades")
+ranks2 <- c("Ace", "King", "Queen", "Ace")
+
+hand2 <- determinePokerHand(suits2, ranks2)
+cat("Hand 2:", hand2, "\n")  # Expected output: "One Pair"
+
+# Test case 3
+suits3 <- c("Diamonds", "Hearts", "Spades", "Clubs", "Hearts")
+ranks3 <- c("Ace", "King", "Queen", "Jack", "Ten")
+
+hand3 <- determinePokerHand(suits3, ranks3)
+cat("Hand 3:", hand3, "\n")  # Expected output: "High Card"
+```
+
+### Test the second function
+```{r, warning=FALSE}
+set.seed(1)
+# Test case 1
+cat("Test case 1:\n")
+dealPokerRound(2)
+cat("\n-------------------\n")
+
+# Test case 2
+cat("Test case 2:\n")
+dealPokerRound(3)
+cat("\n-------------------\n")
+
+# Test case 3
+cat("Test case 3:\n")
+dealPokerRound(4)
+cat("\n-------------------\n")
+
+# Test case 4
+#cat("Test case 4:\n")
+#dealPokerRound(11)
+#cat("\n-------------------\n")
+```
+
+### Based on the results, both function provide the accurate results since the inputs and outputs are valid and correct. When the player above 10, there will be an error and the function will not work (check the comments in part(d))
