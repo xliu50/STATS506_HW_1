@@ -198,15 +198,14 @@ model1 <- lm(Highway_mpg ~ Horsepower + Torque + Height + Length + Width + facto
 summary(model1)
 ```
 
-Answer: Based on the results, The highway MPG will increase 1 as Horsepower increase 0.0163556. In addition, the p-value of Horsepower, Torque and Height are less than 0.05, which means these feature are significantly related to the highway mpg.
+Answer: Based on the results, The highway MPG will increase 0.0163556 as Horsepower increase 1. In addition, the p-value of Horsepower, Torque and Height are less than 0.05, which means these feature are significantly related to the highway mpg.
 
 ### Part (d)
 
 ```{r}
-library(interactions)
 library(ggplot2)
 #Build regression model
-model2 <- lm(Highway_mpg ~ Horsepower + Torque + Height + Length + Width + Horsepower * Torque, data = cars)
+model2 <- lm(Highway_mpg ~ Horsepower + Torque + Height + Length + Width + Horsepower * Torque + + factor(Year), data = cars)
 summary(model2)
 ```
 
@@ -374,23 +373,27 @@ Answer: Based on the results, The highway MPG will increase 1 as Horsepower incr
 ### Part (d)
 
 ``` stata
+keep if Torque == 125 | Torque == 300 | Torque == 465
+```
 
-. do "C:\Users\AAAAAA~1\AppData\Local\Temp\STD4890_000000.tmp"
+``` stata
 
-. regress Highway_mpg c.Horsepower##i.Torque c.Height c.Length c.Width
+. regress Highway_mpg c.Horsepower i.Torque c.Horsepower##i.Torque c.Heig
+> ht c.Length c.Width i.Year
+note: Horsepower omitted because of collinearity.
 
       Source |       SS           df       MS      Number of obs   =     
 >    93
--------------+----------------------------------   F(8, 84)        =     
-> 84.90
-       Model |  1814.77897         8  226.847371   Prob > F        =    0
+-------------+----------------------------------   F(10, 82)       =     
+> 81.57
+       Model |  1852.95615        10  185.295615   Prob > F        =    0
 > .0000
-    Residual |  224.446835        84  2.67198613   R-squared       =    0
-> .8899
+    Residual |  186.269661        82  2.27158124   R-squared       =    0
+> .9087
 -------------+----------------------------------   Adj R-squared   =    0
-> .8795
+> .8975
        Total |  2039.22581        92  22.1654979   Root MSE        =    1
-> .6346
+> .5072
 
 -------------------------------------------------------------------------
 > -----
@@ -398,37 +401,44 @@ Answer: Based on the results, The highway MPG will increase 1 as Horsepower incr
 > rval]
 -------------+-----------------------------------------------------------
 > -----
-  Horsepower |   .2070757   .0374748     5.53   0.000     .1325529    .28
-> 15985
+  Horsepower |   .1572461   .0382836     4.11   0.000     .0810878    .23
+> 34043
              |
       Torque |
-        300  |  -116.3695   41.23258    -2.82   0.006     -198.365   -34.
-> 37396
-        465  |   18.05331   19.02879     0.95   0.345    -19.78753    55.
-> 89415
+        300  |  -113.3484   38.05794    -2.98   0.004    -189.0578   -37.
+> 63903
+        465  |  -5.888713   18.70873    -0.31   0.754    -43.10635    31.
+> 32892
+             |
+  Horsepower |          0  (omitted)
              |
       Torque#|
 c.Horsepower |
-        300  |    .243268   .1424745     1.71   0.091    -.0400582    .52
-> 65942
-        465  |  -.2227229   .0537516    -4.14   0.000     -.329614   -.11
-> 58319
+        300  |   .2633117   .1319692     2.00   0.049      .000783    .52
+> 58404
+        465  |  -.1370639   .0555372    -2.47   0.016     -.247545   -.02
+> 65829
              |
-      Height |  -.0096222   .0041685    -2.31   0.023    -.0179117   -.00
-> 13326
-      Length |  -.0091535   .0021416    -4.27   0.000    -.0134124   -.00
-> 48947
-       Width |   -.007384   .0028123    -2.63   0.010    -.0129766   -.00
-> 17914
-       _cons |   11.19312   4.741956     2.36   0.021     1.763216    20.
-> 62302
+      Height |  -.0104702   .0038569    -2.71   0.008    -.0181427   -.00
+> 27976
+      Length |  -.0056861   .0021607    -2.63   0.010    -.0099845   -.00
+> 13877
+       Width |  -.0074948   .0026444    -2.83   0.006    -.0127554   -.00
+> 22342
+             |
+        Year |
+       2011  |   1.003464   .4036532     2.49   0.015     .2004695    1.8
+> 06459
+       2012  |   2.083896   .5120097     4.07   0.000     1.065346    3.1
+> 02446
+             |
+       _cons |    16.0139   4.835223     3.31   0.001     6.395097     25
+> .6327
 -------------------------------------------------------------------------
 > -----
 
 . 
-. keep if Torque == 125 | Torque == 300 | Torque == 465
-(0 observations deleted)
-
+. 
 . 
 . margins Torque, at(Horsepower = (200(50)600))
 
@@ -455,60 +465,60 @@ Expression: Linear prediction, predict()
 -------------+-----------------------------------------------------------
 > -----
   _at#Torque |
-      1 125  |   48.92618      2.738    17.87   0.000     43.48137      5
-> 4.371
-      1 300  |  -18.78968    13.5626    -1.39   0.170     -45.7604    8.1
-> 81045
-      1 465  |   22.43491   10.96252     2.05   0.044     .6347324    44.
-> 23508
-      2 125  |   59.27997   4.595414    12.90   0.000     50.14148    68.
-> 41845
-      2 300  |    3.72751   6.763067     0.55   0.583     -9.72159    17.
-> 17661
-      2 465  |   21.65255   9.172568     2.36   0.021     3.411888     39
-> .8932
-      3 125  |   69.63375   6.462262    10.78   0.000     56.78284    82.
-> 48467
-      3 300  |    26.2447   .2348082   111.77   0.000     25.77775    26.
-> 71164
-      3 465  |   20.87018   7.384342     2.83   0.006      6.18561    35.
-> 55476
-      4 125  |   79.98754   8.332205     9.60   0.000     63.41804    96.
-> 55704
-      4 300  |   48.76188     6.8478     7.12   0.000     35.14428    62.
-> 37948
-      4 465  |   20.08782   5.599497     3.59   0.001     8.952608    31.
-> 22304
-      5 125  |   90.34133   10.20354     8.85   0.000     70.05047    110
-> .6322
-      5 300  |   71.27907   13.64737     5.22   0.000     44.13978    98.
-> 41836
-      5 465  |   19.30546   3.822774     5.05   0.000     11.70346    26.
-> 90747
-      6 125  |   100.6951   12.07562     8.34   0.000     76.68141    124
-> .7088
-      6 300  |   93.79626   20.44823     4.59   0.000      53.1327    134
-> .4598
-      6 465  |    18.5231   2.075135     8.93   0.000     14.39647    22.
-> 64973
-      7 125  |   111.0489   13.94815     7.96   0.000     83.31147    138
-> .7863
-      7 300  |   116.3134   27.24942     4.27   0.000     62.12498    170
-> .5019
-      7 465  |   17.74074   .6573695    26.99   0.000     16.43349    19.
-> 04799
-      8 125  |   121.4027   15.82097     7.67   0.000     89.94096    152
-> .8644
-      8 300  |   138.8306   34.05074     4.08   0.000       71.117    206
-> .5443
-      8 465  |   16.95838   1.729579     9.80   0.000     13.51892    20.
-> 39784
-      9 125  |   131.7565   17.69398     7.45   0.000     96.57006    166
-> .9429
-      9 300  |   161.3478   40.85212     3.95   0.000     80.10889    242
-> .5867
-      9 465  |   16.17602   3.461808     4.67   0.000     9.291832     23
-> .0602
+      1 125  |    45.0002   2.811265    16.01   0.000      39.4077     50
+> .5927
+      1 300  |  -15.68585   12.52816    -1.25   0.214    -40.60835    9.2
+> 36645
+      1 465  |    11.6987   10.47667     1.12   0.267    -9.142738    32.
+> 54014
+      2 125  |   52.86251   4.711496    11.22   0.000     43.48984    62.
+> 23517
+      2 300  |   5.342037   6.248235     0.85   0.395    -7.087693    17.
+> 77177
+      2 465  |   12.70781   8.764094     1.45   0.151    -4.726766    30.
+> 14238
+      3 125  |   60.72481    6.61977     9.17   0.000     47.55598    73.
+> 89364
+      3 300  |   26.36993   .2186819   120.59   0.000      25.9349    26.
+> 80495
+      3 465  |   13.71692    7.05307     1.94   0.055    -.3138864    27.
+> 74772
+      4 125  |   68.58712   8.530689     8.04   0.000     51.61686    85.
+> 55737
+      4 300  |   47.39782   6.322728     7.50   0.000     34.81989    59.
+> 97574
+      4 465  |   14.72602   5.345094     2.76   0.007     4.092928    25.
+> 35912
+      5 125  |   76.44942    10.4428     7.32   0.000     55.67536    97.
+> 22348
+      5 300  |    68.4257   12.60268     5.43   0.000     43.35495    93.
+> 49646
+      5 465  |   15.73513   3.644455     4.32   0.000     8.485147    22.
+> 98511
+      6 125  |   84.31172   12.35556     6.82   0.000     59.73259    108
+> .8909
+      6 300  |   89.45359   18.88386     4.74   0.000     51.88758    127
+> .0196
+      6 465  |   16.74424   1.970246     8.50   0.000     12.82479    20.
+> 66368
+      7 125  |   92.17403   14.26869     6.46   0.000     63.78905     12
+> 0.559
+      7 300  |   110.4815   25.16534     4.39   0.000     60.41961    160
+> .5434
+      7 465  |   17.75334   .6078379    29.21   0.000     16.54416    18.
+> 96253
+      8 125  |   100.0363   16.18207     6.18   0.000     67.84503    132
+> .2276
+      8 300  |   131.5094   31.44694     4.18   0.000     68.95139    194
+> .0674
+      8 465  |   18.76245    1.65676    11.32   0.000     15.46663    22.
+> 05827
+      9 125  |   107.8986   18.09563     5.96   0.000     71.90067    143
+> .8966
+      9 300  |   152.5373    37.7286     4.04   0.000     77.48305    227
+> .5915
+      9 465  |   19.77156   3.317835     5.96   0.000     13.17133    26.
+> 37179
 -------------------------------------------------------------------------
 > -----
 
@@ -523,5 +533,4 @@ end of do-file
 . 
 ```
 
-![](Interaction_plot.png)
-Answer: Based on the results from model2, we can see that the interaction between horsepower and torque is significant to the Highway_mpg. I choose three Torque (125, 300, 465) as test data, and based on the plot, we can see that when Torque = 300 or 125, the Highway_mpg is increases as Horsepower increases, and the Highway_mpg increase faster when Torque = 300. In addition, when Torque = 465, The Highway_mpg will slightly decrease as Horsepower increase. These results are same to the results get from R.
+![](Interaction_plot.png) Answer: Based on the results from model2, we can see that the interaction between horsepower and torque is significant to the Highway_mpg. I choose three Torque (125, 300, 465) as test data, and based on the plot, we can see that when Torque = 300 or 125, the Highway_mpg is increases as Horsepower increases, and the Highway_mpg increase faster when Torque = 300. In addition, when Torque = 465, The Highway_mpg will slightly decrease as Horsepower increase. These results are same to the results get from R.
