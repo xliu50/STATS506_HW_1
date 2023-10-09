@@ -1,0 +1,539 @@
+---
+title: "STATS506_HW3"
+format:
+  html:
+    embed-resources: true
+editor: visual
+Aurthor: Xuchen Liu
+---
+
+## Problem 1
+
+### Part (a)
+
+``` stata
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\VIX_D.dta", clear
+
+. 
+. merge 1:1 SEQN using "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\DEMO_D.dta"
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         3,368
+        from master                         0  (_merge==1)
+        from using                      3,368  (_merge==2)
+
+    Matched                             6,980  (_merge==3)
+    -----------------------------------------
+
+. 
+. keep if _merge == 3
+(3,368 observations deleted)
+
+. 
+. drop _merge
+
+. 
+. save "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\merged_HW3.dta", replace
+file C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\merged_HW3.dta saved
+
+. 
+. count
+  6,980
+```
+
+There are 6980 matched record.
+
+### Part (b)
+
+``` stata
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\merged_HW3.dta", clear
+
+. 
+. egen age_group = cut(RIDAGEYR), at(0(10)150)
+
+. 
+. 
+. 
+. egen total_yes = total(VIQ220 == 1), by(age_group)
+
+. 
+. egen total_no = total(VIQ220 == 2), by(age_group)
+
+. 
+. gen total = total_yes + total_no
+
+. 
+. gen proportion = total_yes / total
+
+. 
+. tabstat proportion, by(age_group) stats(mean N) save
+
+Summary for variables: proportion
+Group variable: age_group 
+
+age_group |      Mean         N
+----------+--------------------
+       10 |  .3208812      2207
+       20 |  .3265742      1021
+       30 |  .3586667       818
+       40 |  .3699871       815
+       50 |  .5500821       631
+       60 |  .6222222       661
+       70 |  .6689038       469
+       80 |  .6688103       358
+----------+--------------------
+    Total |   .422362      6980
+-------------------------------
+```
+
+### Part (c)
+
+``` stata
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\merged_HW3.dta", clear
+
+. 
+. keep if INDFMPIR != .
+(342 observations deleted)
+
+. 
+. keep if VIQ220 != .
+(389 observations deleted)
+
+. 
+. keep if VIQ220 != 9
+(2 observations deleted)
+
+. 
+. gen glasses_yes = (VIQ220 == 1)
+
+. 
+. // Model 1
+. logit glasses_yes RIDAGEYR, nolog or
+
+Logistic regression                                     Number of obs =  6,247
+                                                        LR chi2(1)    = 403.24
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4057.9357                             Pseudo R2     = 0.0473
+
+------------------------------------------------------------------------------
+ glasses_yes | Odds ratio   Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    RIDAGEYR |   1.024519   .0012701    19.54   0.000     1.022032    1.027011
+       _cons |   .2926507   .0159899   -22.49   0.000     .2629309    .3257299
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. 
+. local pseudoR2_1 = 1 - (e(ll)/e(ll_0))
+
+. 
+. estimates store m1
+
+. 
+. // Model 2
+. logit glasses_yes RIDAGEYR RIDRETH1 RIAGENDR
+
+Iteration 0:  Log likelihood = -4259.5533  
+Iteration 1:  Log likelihood = -4001.7382  
+Iteration 2:  Log likelihood = -4000.7854  
+Iteration 3:  Log likelihood = -4000.7853  
+
+Logistic regression                                     Number of obs =  6,247
+                                                        LR chi2(3)    = 517.54
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4000.7853                             Pseudo R2     = 0.0608
+
+------------------------------------------------------------------------------
+ glasses_yes | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    RIDAGEYR |   .0246047   .0012579    19.56   0.000     .0221394    .0270701
+    RIDRETH1 |   .1194197   .0231207     5.17   0.000     .0741039    .1647355
+    RIAGENDR |    .499347   .0537323     9.29   0.000     .3940336    .6046604
+       _cons |  -2.345872   .1221107   -19.21   0.000    -2.585204   -2.106539
+------------------------------------------------------------------------------
+
+. 
+. local pseudoR2_2 = 1 - (e(ll)/e(ll_0))
+
+. 
+. estimates store m2
+
+. 
+. 
+. // Model 3
+. logit glasses_yes RIDAGEYR RIDRETH1 RIAGENDR INDFMPIR
+
+Iteration 0:  Log likelihood = -4259.5533  
+Iteration 1:  Log likelihood = -3966.8788  
+Iteration 2:  Log likelihood = -3965.3949  
+Iteration 3:  Log likelihood = -3965.3948  
+
+Logistic regression                                     Number of obs =  6,247
+                                                        LR chi2(4)    = 588.32
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -3965.3948                             Pseudo R2     = 0.0691
+
+------------------------------------------------------------------------------
+ glasses_yes | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    RIDAGEYR |   .0237627    .001262    18.83   0.000     .0212892    .0262362
+    RIDRETH1 |   .0927756   .0235641     3.94   0.000     .0465909    .1389603
+    RIAGENDR |   .5185953   .0541213     9.58   0.000     .4125196     .624671
+    INDFMPIR |   .1426011   .0170108     8.38   0.000     .1092606    .1759416
+       _cons |  -2.634169   .1284572   -20.51   0.000    -2.885941   -2.382398
+------------------------------------------------------------------------------
+
+. 
+. local pseudoR2_3 = 1 - (e(ll)/e(ll_0))
+
+. 
+. estimates store m3
+
+. 
+. // Create table
+. esttab m1 m2 m3, eform cells("b p") stats(N aic) ///
+> addnote("Pseudo R2: `pseudoR2_1' `pseudoR2_2' `pseudoR2_3'")
+
+------------------------------------------------------------------------------------------
+                      (1)                       (2)                       (3)             
+              glasses_yes               glasses_yes               glasses_yes             
+                        b            p            b            p            b            p
+------------------------------------------------------------------------------------------
+glasses_yes                                                                               
+RIDAGEYR         1.024519            0      1.02491            0     1.024047            0
+RIDRETH1                                   1.126843     2.40e-07     1.097216     .0000824
+RIAGENDR                                   1.647645            0     1.679667            0
+INDFMPIR                                                              1.15327            0
+------------------------------------------------------------------------------------------
+N                    6247                      6247                      6247             
+aic              8119.871                  8009.571                   7940.79             
+------------------------------------------------------------------------------------------
+Exponentiated coefficients
+Pseudo R2:    .0473330299421751         .0607500328167399         .0690585378250731
+```
+
+### Part (d)
+
+``` stata
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\merged_HW3.dta", clear
+
+. 
+. keep if INDFMPIR != .
+(342 observations deleted)
+
+. 
+. keep if VIQ220 != .
+(389 observations deleted)
+
+. 
+. keep if VIQ220 != 9
+(2 observations deleted)
+
+. 
+. gen glasses_yes = (VIQ220 == 1)
+
+. 
+. 
+. di exp(_b[RIAGENDR])
+1.6796666
+
+. 
+. tabulate RIAGENDR glasses, chi2
+
+           |      glasses_yes
+  RIAGENDR |         0          1 |     Total
+-----------+----------------------+----------
+         1 |     1,919      1,134 |     3,053 
+         2 |     1,673      1,521 |     3,194 
+-----------+----------------------+----------
+     Total |     3,592      2,655 |     6,247 
+
+          Pearson chi2(1) =  70.1108   Pr = 0.000
+```
+
+Based on the above results, the difference of odds ratios between males and female is 1.68. Therefore, there is NO significant evidence to support that the odds of men and women being aware of wearing glasses/contact lenses for distance vision differ.
+
+In addition, based on the chi-square test, the chi-squared statistic is 70.11, and the p-value is 0 that less than 0.05 which means that we cannot reject the hypothesis that there is no significant difference in the proportion of wearers of glasses/contact lenses for distance vision between men and women.
+
+## Problem 2
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(dplyr)
+```
+
+```{r}
+sakila <- dbConnect(RSQLite::SQLite(), "sakila_master.db")
+dbListTables(sakila)
+
+gg <- function(x) {
+  dbGetQuery(sakila, x)
+}
+```
+
+### Part (a)
+
+```{r}
+gg("
+   SELECT l.name, COUNT(*)
+   FROM film AS f
+   JOIN language AS l
+   ON f.language_id = l.language_id 
+   GROUP BY l.name
+   ")
+```
+
+Based on the results, there is no other films aside from English.
+
+### Part(b)
+
+#### Method 1
+
+```{r}
+datab <- gg("
+   SELECT f.film_id, c.name as genre
+   FROM film AS f
+   LEFT JOIN film_category AS f2
+   ON f.film_id = f2.film_id
+   LEFT JOIN category c
+   ON f2.category_id = c.category_id
+   ")
+
+# Process the data to find the genre with highest count
+result_b <- datab %>%
+  group_by(genre) %>%
+  summarise(total_count = n()) %>%
+  arrange(desc(total_count)) %>%
+  head(1)
+
+result_b
+```
+
+#### Method 2
+
+```{r}
+gg("
+   SELECT c.name as genre, count(f.film_id) AS total_count
+   FROM film AS f
+   LEFT JOIN film_category AS f2
+   ON f.film_id = f2.film_id
+   LEFT JOIN category c
+   ON f2.category_id = c.category_id
+   GROUP BY c.name
+   ORDER BY total_count DESC
+   LIMIT 1
+   ")
+```
+
+Based on the results, Sports movie is the most common in data, and there are 74 sports movie in data.
+
+### Part (c)
+
+#### Method 1
+
+```{r}
+datac <- gg("
+   SELECT c.customer_id as customer_num, co.country
+   FROM customer AS c
+   LEFT JOIN address AS a
+   ON c.address_id = a.address_id
+   LEFT JOIN city AS ci
+   ON a.city_id = ci.city_id
+   LEFT JOIN country AS co
+   ON ci.country_id = co.country_id
+   ")
+
+# Process the data to find the country with 9 customer
+result_c <- datac %>%
+  group_by(country) %>%
+  summarise(customer_num = n()) %>%
+  filter(customer_num == 9)
+
+result_c
+```
+
+```{r}
+gg("
+   SELECT co.country, COUNT(c.customer_id) AS customer_num
+   FROM customer AS c
+   LEFT JOIN address AS a
+   ON c.address_id = a.address_id
+   LEFT JOIN city AS ci
+   ON a.city_id = ci.city_id
+   LEFT JOIN country AS co
+   ON ci.country_id = co.country_id
+   GROUP BY co.country
+   HAVING customer_num = 9
+   ")
+```
+
+Based on the results, United Kingdom has exactly 9 customers.
+
+## Problem 3
+
+```{r}
+library(scales)
+library(stringr)
+library(ggplot2)
+us <- read.csv("us-500.csv")
+```
+
+### Part (a)
+
+```{r}
+# Create a function to extract the tld
+extract_tld <- function(email) {
+  tld <- sub(".*@.*\\.(\\w+)$", "\\1", email)
+  return(tolower(tld))
+}
+
+# Apply the function to the email col
+us$TLD <- sapply(us$email, extract_tld)
+
+# Count the number of each TLD
+tld_total <- table(us$TLD)
+
+# Calculate the proportion of ".net" TLD
+proportion_a <- tld_total["net"] / sum(tld_total)
+
+proportion_a
+```
+
+### Part (b)
+
+```{r}
+# Create a function to check if there is non alphanumeric character in term.
+non_alphanum <- function(email) {
+  return(any(!grepl("^[A-Za-z0-9]+$", strsplit(email, "@")[[1]][1])))
+}
+
+# Apply the function to the email col
+us$non_alphanum <- sapply(us$email, non_alphanum)
+
+# Calculate the proportion of email addresses with at least one non-alphanumeric character in term
+proportion_b <- mean(us$non_alphanum)
+
+proportion_b
+```
+
+### Part (c)
+
+```{r}
+all_numbers <- c(us$phone1, us$phone2)
+
+# Use sapply to extract area codes using regular expressions
+area_codes <- sapply(all_numbers, function(phone) {
+  match <- regexpr("\\d{3}", phone)  
+  if (match != -1) {
+    substring(phone, match, match + 2)
+  } else {
+    NA  
+  }
+})
+
+# Create a table of area code counts
+area_code_counts <- table(area_codes)
+
+# Find the most common area code
+names(area_code_counts)[which.max(area_code_counts)]
+```
+
+The most common area code is 973
+
+### Part (d)
+
+```{r, warning=FALSE}
+# Extract the apartment number and clean the address
+us$apartment_num <- as.numeric(sub(".+#(\\d+).*", "\\1", us$address))
+
+# Remove rows with NA in ApartmentNumber
+us <- us[!is.na(us$apartment_num), ]
+
+# Calculate the log of apartment numbers
+us$log_apartment_num <- log(us$apartment_num)
+
+# Create a histogram plot
+ggplot(us, aes(x = log_apartment_num)) +
+  geom_histogram(binwidth = 0.5) +
+  labs(
+    title = "Histogram of the Log of Apartment Numbers",
+    x = "Log of Apartment Number",
+    y = "Frequency"
+  )
+
+```
+
+### Part (e)
+
+```{r, warning=FALSE}
+us$leading_digit <- as.numeric(substr(us$apartment_num, 1, 1))
+
+leading_digit_us <- data.frame(LeadingDigit = us$leading_digit)
+
+# Caluclate probability
+leading_digit_us$prob_theoritical <- log10(1+1/leading_digit_us$LeadingDigit)
+
+# Remove duplicates
+leading_digit_us1 <- leading_digit_us %>%
+  distinct(LeadingDigit, .keep_all = TRUE)
+
+# Create a frequency table
+leading_digit_us <- leading_digit_us %>%
+  group_by(LeadingDigit) %>%
+  mutate(Obs_freq = n()) %>%
+  ungroup()
+
+# Remove duplicates
+apartment_leading <- leading_digit_us %>%
+  distinct(LeadingDigit, .keep_all = TRUE)
+
+test <- chisq.test(apartment_leading$Obs_freq, p =  leading_digit_us1$prob_theoritical)
+
+test
+```
+
+Based on the results, because the p-value is 2e-10 that less than 0.05, we can reject the NULL hypothesis which means the apartment numbers would not pass as real data.
+
+### Part (f)
+
+```{r}
+us <- read.csv("us-500.csv")
+
+# Extract street name
+us$street_number <- sub("^(\\S+) .*", "\\1", us$address)
+
+# Extract the last digit
+us$last_digit <- as.numeric(substr(us$street_number, nchar(us$street_number), nchar(us$street_number)))
+
+last_digit_us <- data.frame(lastDigit = us$last_digit)
+
+# Remove the value that equal to 0
+last_digit_us <- last_digit_us[last_digit_us$lastDigit != 0, ]
+
+last_digit_us <- data.frame(lastDigit = last_digit_us)
+
+# Caluclate probability
+last_digit_us$prob_theoritical <- log10(1+1/last_digit_us$lastDigit)
+
+# Remove duplicates
+last_digit_us1 <- last_digit_us %>%
+  distinct(lastDigit, .keep_all = TRUE)
+
+# Create a frequency table
+last_digit_us <- last_digit_us %>%
+  group_by(lastDigit) %>%
+  mutate(Obs_freq = n()) %>%
+  ungroup()
+
+# Remove duplicates
+apartment_last <- last_digit_us %>%
+  distinct(lastDigit, .keep_all = TRUE)
+
+test <- chisq.test(apartment_last$Obs_freq, p =  last_digit_us1$prob_theoritical)
+
+test
+```
+
+Based on the results, the p-value is less than 0.05, therefore, we can reject the NULL hypothesis which means the street numbers would not pass as real data.
