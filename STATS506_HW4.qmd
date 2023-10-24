@@ -16,7 +16,7 @@ library(nycflights13)
 library(tidyverse)
 library(dplyr)
 data(flights)
-head(flights)
+head(flights) 
 head(airports) 
 ```
 
