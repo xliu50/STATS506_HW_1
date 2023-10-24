@@ -1,0 +1,439 @@
+---
+title: "STATS506_HW4"
+format:
+  html:
+    embed-resources: true
+editor: visual
+Aurthor: Xuchen Liu
+---
+
+## Problem 1
+
+### Part(a)
+
+```{r}
+library(nycflights13)
+library(tidyverse)
+library(dplyr)
+data(flights)
+head(flights)
+head(airports)
+```
+
+```{r}
+# Remove NA
+flights_cleaned <- flights[!is.na(flights$dep_delay), ]
+# Split data
+split_data <- split(flights_cleaned, flights_cleaned$origin)
+# Filter data
+filtered_data <- split_data[sapply(split_data, nrow) >= 10]
+
+summary_list <- lapply(filtered_data, function(data) {
+  return(data.frame(
+    origin = unique(data$origin),
+    mean_delay = mean(data$dep_delay, na.rm = TRUE),
+    median_delay = median(data$dep_delay, na.rm = TRUE)
+  ))
+})
+
+combined_data <- do.call(rbind, summary_list)
+ordered_data <- combined_data[order(-combined_data$mean_delay), ]
+
+merged_data <- merge(ordered_data, airports, by.x = "origin", by.y = "faa")
+departure_delays <- merged_data[c("name", "mean_delay", "median_delay")]
+
+print(departure_delays, row.names = FALSE)
+```
+
+```{r}
+arrival_delays <- flights %>% 
+  group_by(dest) %>%
+  summarise(
+    total = n(),
+    mean_delay = mean(arr_delay, na.rm = TRUE),
+    median_delay = median(arr_delay, na.rm = TRUE)
+  ) %>%
+  filter(total >= 10) %>%
+  arrange(-mean_delay) %>%
+  left_join(airports %>% select(name, faa), by = c("dest" = "faa")) %>%
+  select(name, mean_delay, median_delay)
+
+
+print(arrival_delays, n = Inf)
+```
+
+### Part(b)
+
+```{r}
+head(planes)
+```
+
+```{r}
+# Calculate average speed for each flight in flights data.frame
+flights$average_speed_mph <- flights$distance / (flights$air_time / 60)
+
+# Merge flights and planes datasets by tailnum
+merged_data <- merge(flights, planes, by = "tailnum", all.x = TRUE)
+
+summary_data <- by(merged_data, merged_data$model, function(df) {
+  avg_speed = mean(df$average_speed_mph, na.rm = TRUE)
+  num_flights = length(na.omit(df$average_speed_mph))
+  data.frame(model = as.character(unique(df$model)), avg_speed = avg_speed, num_flights = num_flights)
+})
+
+# Combine results and arrange by avg_speed in descending order
+result <- do.call(rbind, summary_data)
+result <- result[order(-result$avg_speed), ]
+fastest_aircraft <- head(result, 1)
+
+print(fastest_aircraft, row.names = FALSE)
+```
+
+## Problem 2
+
+```{r}
+library(dlnm)
+data(chicagoNMMAPS)
+nnmaps <- chicagoNMMAPS
+```
+
+```{r}
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean) {
+  
+  if (is.character(month)) {
+    month <- tolower(month)
+    if (month %in% tolower(month.abb)) {
+      month <- match(month, tolower(month.abb))
+    } else if (month %in% tolower(month.name)) {
+      month <- match(month, tolower(month.name))
+    } else {
+      return("Invalid month provided.")
+    }
+  }
+  
+  # Validate inputs
+  if (!is.numeric(year) || year < min(data$year) || year > max(data$year)) {
+    return("Year out of range.")
+  }
+  
+  # Calculate average temperature
+  avg_temp <- data %>%
+    filter(month == month, year == year) %>%
+    summarise(average = average_fn(temp)) %>%
+    pull(average)
+  
+  # Convert to Celsius 
+  if (celsius) {
+    avg_temp <- (avg_temp - 32) * 5/9
+  }
+  
+  return(avg_temp)
+}
+```
+
+```{r}
+#Test example
+print(get_temp("Apr", 1999, data = nnmaps))
+print(get_temp("Apr", 1999, data = nnmaps, celsius = TRUE))
+print(get_temp(10, 1998, data = nnmaps, average_fn = median))
+print(get_temp(13, 1998, data = nnmaps))
+print(get_temp(2, 2005, data = nnmaps))
+print(get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         }))
+```
+
+## Problem 3
+
+``` sas
+/* Part (a) */
+proc import datafile="/home/u63653051/sasuser.v94/recs2020_public_v5.csv"
+            out=mydata
+            DBMS=csv
+            replace;
+run;
+
+
+/* Calculate the weighted scores for each state */
+proc sql;
+  create table state_records as
+  select state_name, sum(NWEIGHT) as weighted_records
+  from mydata
+  group by state_name;
+quit;
+
+/* Calculate the sum of weighted scores */
+proc sql;
+  select sum(weighted_records) as total_weighted_records
+  into :total_weighted_records
+  from state_records;
+quit;
+
+
+/* Calculate the percentage of records for each state */
+data state_percentage;
+  set state_records;
+  percentage = (weighted_records / &total_weighted_records) * 100;
+run;
+
+/* Find the state with the highest percentage */
+proc sql;
+  select state_name, percentage
+  into :highest_state, :highest_percentage
+  from state_percentage
+  where percentage = (select max(percentage) from state_percentage);
+quit;
+
+/* Calculate the percentage of records for Michigan */
+proc sql;
+  select state_name, percentage
+  into :state_name, :michigan_percentage
+  from state_percentage
+  where state_name = 'Michigan';
+quit;
+
+
+/* Part (b) */
+/* Filter the data */
+data positive_cost;
+  set mydata;
+  where DOLLAREL > 0;
+run;
+
+title 'Histogram of the total electricity cost in dollars';
+ods graphics on;
+proc univariate data=positive_cost noprint;
+   histogram DOLLAREL;
+run;
+
+/* Part (c) */
+data mydata;
+  set mydata; /* Replace "mydata" with your actual dataset name */
+  log_dollarel = log(DOLLAREL);
+run;
+
+title 'Histogram of the log of the total electricity cost in dollars';
+ods graphics on;
+proc univariate data=mydata noprint;
+   histogram log_dollarel;
+run;
+
+/* Part (d) */
+/* Fit a linear regression model */
+proc reg data=log_cost_data plots(maxpoints=none);
+    model log_DOLLAREL = TOTROOMS PRKGPLC1;
+    weight NWEIGHT;
+    output out=outpredicted p=predicted;
+    title "Linear Regression of Log of ToTal Electricity Cost on Number of Rooms and Garage";
+run;
+
+/* Part (e) */
+data glm_output;
+    set glm_output;
+    predicted_dollarel = EXP(predicted_log_dollarel);
+run;
+
+
+proc sgplot data=glm_output;
+    scatter x=DOLLAREL y=predicted_dollarel;
+    title "Scatter Plot of Actual vs. Predicted Total Electricity Cost";
+    xaxis label="Actual Total Electricity Cost";
+    yaxis label="Predicted Total Electricity Cost";
+run;
+```
+
+## Problem 4
+
+### Part(a)
+
+``` sas
+The Codebook is generated by Stata
+```
+
+### Part(b)
+
+``` sas
+/* Import data from CSV */
+PROC IMPORT OUT=WORK.MYDATA
+    DATAFILE="/home/u63653051/sasuser.v94/public2022.csv" 
+    DBMS=CSV REPLACE;
+    GETNAMES=YES;
+    DATAROW=2; 
+RUN;
+
+/* Create a new dataset */
+PROC SQL;
+    CREATE TABLE WORK.NEW_DATASET AS
+    SELECT B3, ND2, B7_B, GH1, ppeducat, race_5cat, CaseID,  
+    FROM WORK.MYDATA;
+QUIT;
+
+/* Filter NA */
+PROC SQL;
+    CREATE TABLE WORK.NO_MISSING_DATA AS
+    SELECT *
+    FROM WORK.NEW_DATASET
+    WHERE NOT MISSING(B3, ND2, B7_B, GH1, ppeducat, race_5cat);
+QUIT;
+
+/* Export file */
+PROC EXPORT DATA=WORK.NO_MISSING_DATA 
+    OUTFILE="/home/u63653051/sasuser.v94/data.dta" 
+    DBMS=DTA REPLACE; 
+RUN;
+```
+
+### Part(c)
+
+``` stata
+. do "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\STATS506_HW4.do"
+
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\data.dta", clear
+
+.
+end of do-file
+```
+
+### Part(d)
+
+``` stata
+. do "C:\Users\AAAAAA~1\AppData\Local\Temp\STD2be4_000000.tmp"
+
+. use "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\data.dta", clear
+
+. 
+. local vars = c(k)
+
+. 
+. display "The number of observations is " _N
+The number of observations is 11667
+
+. 
+. display "The number of variables is " `vars'
+The number of variables is 8
+
+.
+end of do-file
+```
+
+Based on the results, the number of observations is 11667 and the number of variables is 8.
+
+### Part(e)
+
+``` stata
+. gen B3_binary = cond(inlist(B3, "Much worse off", "Somewhat worse off"), 1, 0)
+
+.
+end of do-file
+```
+
+### Part(f)
+
+``` stata
+. svyset CaseID [pw=weight_pop]
+
+Sampling weights: weight_pop
+             VCE: linearized
+     Single unit: missing
+        Strata 1: <one>
+ Sampling unit 1: CaseID
+           FPC 1: <zero>
+           
+. encode ND2, generate(ND2_num)
+
+. encode B7_b, generate(B7_b_num)
+
+. encode GH1, generate(GH1_num)
+
+. encode ppeducat, generate(ppeducat_num)
+
+. encode race_5cat, generate(race_5cat_num)
+
+. 
+. svy: logistic B3_binary i.ND2_num i.B7_b_num i.GH1_num i.ppeducat_num i.race_5cat_num
+(running logistic on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata =      1                        Number of obs   =      11,667
+Number of PSUs   = 11,667                        Population size = 255,114,223
+                                                 Design df       =      11,666
+                                                 F(17, 11650)    =       56.70
+                                                 Prob > F        =      0.0000
+
+-----------------------------------------------------------------------------------------------------------------------
+                                                      |             Linearized
+                                            B3_binary | Odds ratio   std. err.      t    P>|t|     [95% conf. interval]
+------------------------------------------------------+----------------------------------------------------------------
+                                              ND2_num |
+                                         Much higher  |   1.063807   .0909221     0.72   0.469     .8997132    1.257828
+                                          Much lower  |   .8457762   .1267008    -1.12   0.264     .6305633    1.134442
+                                     Somewhat higher  |   .9803765   .0539256    -0.36   0.719     .8801722    1.091989
+                                      Somewhat lower  |   .8256906   .1575442    -1.00   0.315     .5680528    1.200179
+                                                      |
+                                             B7_b_num |
+                                                Good  |   1.971658   .6940259     1.93   0.054     .9889547    3.930851
+                                           Only fair  |   3.953007   1.369017     3.97   0.000     2.004963    7.793792
+                                                Poor  |   12.00263   4.157008     7.18   0.000     6.087504    23.66537
+                                                      |
+                                              GH1_num |
+Own your home free and clear (without a mortgage ..)  |   1.517136   .1569061     4.03   0.000     1.238745    1.858092
+               Own your home with a mortgage or loan  |   1.414155   .1405931     3.49   0.000      1.16376    1.718427
+                                            Pay rent  |   1.387456   .1431345     3.17   0.002     1.133437    1.698404
+                                                      |
+                                         ppeducat_num |
+High school graduate (high school diploma or the ..)  |   1.164239   .0677651     2.61   0.009     1.038706    1.304944
+                       No high school diploma or GED  |   1.257134   .1251779     2.30   0.022     1.034225    1.528087
+                  Some college or Associate's degree  |   1.129002   .0615152     2.23   0.026     1.014638    1.256257
+                                                      |
+                                        race_5cat_num |
+                                               Black  |   .7794126   .1139209    -1.71   0.088     .5852491    1.037992
+                                            Hispanic  |   1.340777   .1887265     2.08   0.037      1.01749    1.766784
+                                               Other  |   1.612545   .3308172     2.33   0.020     1.078618     2.41077
+                                               White  |   1.579012   .1989463     3.63   0.000     1.233468    2.021357
+                                                      |
+                                                _cons |   .0453271   .0169819    -8.26   0.000      .021748    .0944705
+-----------------------------------------------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. 
+. 
+```
+
+Based on the results, we can see that the p-values of ND2_num are always larger than 0.05, indicate that there is no significant difference between each level.
+
+### Part(g)
+
+``` stata
+. save "C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\data_HW4.dta"
+file C:\Users\AAAAAAAAA\Desktop\STATS 506\HW\data_HW4.dta saved
+
+. 
+```
+
+### Part(h)
+
+```{r}
+library(haven)
+library(survey)
+data4 <- read_dta("data_HW4.dta")
+```
+
+```{r, warning=FALSE}
+survey_design <- svydesign(id = ~ CaseID, weight = ~ weight_pop, data = data4)
+
+# Fit a logistic regression model 
+model <- svyglm(B3_binary ~ factor(ND2_num) + factor(B7_b_num) + factor(GH1_num) + factor(ppeducat_num) + factor(race_5cat_num), design = survey_design, family = binomial(link="logit"))
+
+null_model <- svyglm(B3_binary ~ 1, design = survey_design, family = binomial(link="logit"))
+
+# Calculate the likelihood ratio chi-square statistic
+LR_chi_square <- 2 * (logLik(model) - logLik(null_model))
+
+# Calculate R^2
+nagelkerke_r2 <- 1 - exp(-LR_chi_square / (2 * nobs(model)))
+
+nagelkerke_r2
+```
