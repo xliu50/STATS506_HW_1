@@ -1,0 +1,232 @@
+---
+title: "STATS506_HW5"
+author: "Xuchen Liu"
+format:
+  html:
+    embed-resources: true
+editor: visual
+Aurthor: Xuchen Liu
+---
+
+Github:
+
+# Problem 1
+
+```{r}
+library(ggplot2)
+library(dlnm)
+library(dplyr)
+library(methods)
+library(tidyr)
+data(chicagoNMMAPS)
+nnmaps <- chicagoNMMAPS
+```
+
+## Part (a)
+
+```{r}
+monthly_avg <- nnmaps %>%
+  group_by(month, year) %>%
+  summarise(mean_temp = mean(temp, na.rm = TRUE), .groups = "drop")
+
+monthly_avg$season <- cut(as.integer(monthly_avg$month),
+                          breaks = c(0, 3, 6, 9, 12),
+                          labels = c("Winter", "Spring", "Summer", "Fall"),
+                          include.lowest = TRUE)
+
+
+ggplot(monthly_avg, aes(x = month, y = mean_temp, color = season, group = season)) +
+  geom_point() +
+  geom_line() +
+  scale_x_discrete(limits = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")) +
+  scale_color_manual(values = c("Winter" = "red3", "Spring" = "blue3", "Summer" = "green3", "Fall" = "purple3")) +
+  labs(title = "Mean Monthly Temperature",
+       x = "Month",
+       y = "Mean Temperature",
+       color = "Season") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+```
+
+## Part (b)
+
+```{r}
+monthly_avg <- nnmaps %>%
+  group_by(month, year) %>%
+  summarise(Mean_Temp = mean(temp, na.rm = TRUE),
+            Mean_O3 = mean(o3, na.rm = TRUE),
+            Mean_PM10 = mean(pm10, na.rm = TRUE),
+            Mean_Dewpoint = mean(dptp, na.rm = TRUE),
+            .groups = "drop") %>%
+  pivot_longer(cols = starts_with("mean_"), 
+               names_to = "variable", 
+               values_to = "mean_value")
+
+ggplot(monthly_avg, aes(x = month, y = mean_value, color = variable, group = variable)) +
+  geom_line() +
+  scale_x_discrete(limits = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")) +
+  scale_color_manual(values = c("Mean_Temp" = "red3", 
+                                "Mean_O3" = "blue3", 
+                                "Mean_PM10" = "green3", 
+                                "Mean_Dewpoint" = "purple3")) +
+  labs(title = "Mean Monthly Values of Temp, O3, PM10, and Dewpoint",
+       x = "Month",
+       y = "Mean Value",
+       color = "Variable") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+Based on the graph, we can see that the pm10 level seems to have the least seasonal trend.
+
+# Problem 2
+
+## Part(a)
+
+```{r}
+setClass(
+  "poly",
+  slots = c(coefficients = "numeric")
+)
+```
+
+### Constructor
+
+```{r}
+make_poly <- function(coefficients) {
+  if (!is.numeric(coefficients)) {
+    stop("Coefficients must be numeric")
+  }
+  new("poly", coefficients = coefficients)
+}
+```
+
+### Validator
+
+```{r}
+setValidity("poly", function(object) {
+  if (length(object@coefficients) == 0) {
+    stop("Coefficients vector cannot be empty")
+  }
+  TRUE
+})
+```
+
+### Show method
+
+```{r}
+setMethod("show", "poly", function(object) {
+  x <- object@coefficients
+  len <- length(x)
+  terms <- sapply(seq(len, 1, by = -1), function(i) {
+    coef <- x[len - i + 1]
+    power <- i - 1
+
+    if (coef == 0) return(NULL)
+    if (coef == 1 && power > 0) return(paste0("x^", power))
+    if (coef == -1 && power > 0) return(paste0("-x^", power))
+
+    term <- if (power > 0) paste0("x^", power) else ""
+    return(paste0(coef, term))
+  })
+
+  terms <- terms[!sapply(terms, is.null)]
+  polynomial <- paste(terms, collapse = " + ")
+  polynomial <- gsub(" \\+ -", " - ", polynomial)
+  polynomial <- gsub("x\\^1", "x", polynomial)
+
+  cat("The polynomial is", polynomial, "\n")
+})
+```
+
+### Addition and substraction
+
+```{r}
+setMethod("+", signature("poly", "poly"), function(e1, e2) {
+  len <- max(length(e1@coefficients), length(e2@coefficients))
+  p1 <- c(rep(0, len - length(e1@coefficients)), e1@coefficients)
+  p2 <- c(rep(0, len - length(e2@coefficients)), e2@coefficients)
+
+  sum_coefs <- p1 + p2
+  return(make_poly(sum_coefs))
+})
+
+setMethod("-", signature("poly", "poly"), function(e1, e2) {
+  len <- max(length(e1@coefficients), length(e2@coefficients))
+  p1 <- c(rep(0, len - length(e1@coefficients)), e1@coefficients)
+  p2 <- c(rep(0, len - length(e2@coefficients)), e2@coefficients)
+
+  diff_coefs <- p1 - p2
+  return(make_poly(diff_coefs))
+})
+```
+
+## Part(b)
+
+```{r}
+p1 <- make_poly(c(3, 0, 2))
+p2 <- make_poly(c(7, -2, -1, 17))
+p1
+p2
+p1 + p2
+p1 - p2
+```
+
+# Problem 3
+
+## Part (a)
+
+```{r}
+library(data.table)
+library(nycflights13)
+
+data(flights)
+data(airports)
+data(planes)
+
+setDT(flights)
+setDT(airports)
+setDT(planes)
+```
+
+```{r}
+departure_delay <- flights[, .(mean_delay = mean(dep_delay, na.rm = TRUE),
+                      med_delay = median(dep_delay, na.rm = TRUE),
+                      numflights = .N), by = .(faa = origin)
+                 ][numflights > 10]
+departure_delay <- departure_delay[airports, on = .(faa)]
+departure_delay <- departure_delay[!is.na(mean_delay) & !is.na(med_delay), .(name, mean_delay, med_delay)]
+departure_delay <- departure_delay[order(-mean_delay)]
+departure_delay
+```
+
+```{r}
+flights1 <- flights
+flights1[, faa := dest]
+
+result <- flights1[, .(mean_delay = mean(arr_delay, na.rm = TRUE),
+                      med_delay = median(arr_delay, na.rm = TRUE),
+                      numflights = .N), by = .(faa = dest)
+                 ][numflights > 10]
+
+result <- merge(x = result, y = airports, by = 'faa', all.x = TRUE)
+
+result <- result[, name := fcoalesce(name, faa)][, .(name, mean_delay, med_delay)][order(-mean_delay)]
+
+result
+```
+
+## 
+
+```{r}
+flights[planes, on = .(tailnum), model := i.model]
+
+flights[
+  , .(time = air_time / 60, mph = distance / (air_time / 60)), by = .(model)
+][
+  , .(avgmph = mean(mph, na.rm = TRUE), nflights = .N), by = .(model)
+][order(-avgmph)][1]
+
+```
