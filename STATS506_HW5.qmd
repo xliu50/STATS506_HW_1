@@ -228,5 +228,5 @@ flights[
 ][
   , .(avgmph = mean(mph, na.rm = TRUE), nflights = .N), by = .(model)
 ][order(-avgmph)][1]
-
+ 
 ```
