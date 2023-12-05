@@ -1,0 +1,147 @@
+---
+title: "STATS506_HW6"
+format:
+  html:
+    embed-resources: true
+editor: visual
+Aurthor: Xuchen Liu
+---
+
+```{r}
+library(nycflights13)
+library(dplyr)
+library(parallel)
+library(tidyr)
+library(data.table)
+data(flights)
+
+flights_data <- flights %>%
+  filter(!is.na(air_time)) %>%
+  select(origin, dest, air_time)
+```
+
+```{r}
+confidence_interval <- function(means, threshold = 0.95) {
+  sapply(means, function(x) {
+    n <- length(x)
+    mean <- mean(x)
+    se <- sd(x) / sqrt(n)
+    t_value <- qt(1 - (1 - threshold) / 2, df = n - 1)
+
+    c(
+      Mean = mean,
+      Lower_CI = mean - t_value * se,
+      Upper_CI = mean + t_value * se
+    )
+  })
+}
+```
+
+## Non-Parallel Bootstrap
+
+```{r}
+nonpara_bootstrap <- function(data, Group, stra, response, n = 1000) {
+  
+  # Extract unique values 
+  UniGroup <- unique(data[[Group]])
+  
+  # Initialize a list to store results for each group
+  results <- vector("list", length(UniGroup))
+  names(results) <- UniGroup  # Set names for the list based on unique groups
+
+  # Iterate over each group
+  for (group in UniGroup) {
+    
+    # Subset the data for the current group
+    data_group <- subset(data, data[[Group]] == group)
+
+    # Calculate the size of each strata
+    size_stra <- table(data_group[[stra]])
+
+    # Perform bootstrapping
+    means <- replicate(n, {
+
+      weighted_means <- sapply(names(size_stra), function(dest) {
+        # Subset data for each strata
+        data_dest <- data_group[data_group[, stra] == dest, ]
+        resampled_data <- data_dest[sample(nrow(data_dest), nrow(data_dest), replace = TRUE), ]
+        # Calculate the weighted mean 
+        mean(resampled_data[[response]], na.rm = TRUE) * size_stra[dest]
+      })
+      # Calculate the overall mean 
+      sum(weighted_means) / sum(size_stra)
+    })
+
+    results[[group]] <- means
+  }
+
+  # Return the results
+  return(results)
+}
+
+boot_results <- nonpara_bootstrap(flights_data, "origin", "dest", "air_time")
+
+nonpara_time <- system.time(nonpara_bootstrap(flights_data, "origin", "dest", "air_time"))
+```
+
+```{r}
+CI <- confidence_interval(boot_results)
+CI <- as.data.frame(CI)
+CI
+```
+
+## Parallel Bootstrap
+
+```{r, warning=FALSE}
+bootstrap_1 <- function(data_group, stra, response, n) {
+  
+  size_stra <- table(data_group[, stra])
+  means <- numeric(n)
+
+  for (i in seq_len(n)) {
+    weighted_means <- sapply(names(size_stra), function(dest) {
+      dest_data <- data_group[data_group[, stra] == dest, ]
+      resampled_data <- dest_data[sample(nrow(dest_data), size = nrow(dest_data), replace = TRUE), ]
+      mean(resampled_data[, response], na.rm = TRUE) * size_stra[dest]
+    })
+    means[i] <- sum(weighted_means) / sum(size_stra)
+  }
+  means
+}
+
+# Get unique origin
+unique_origins <- unique(flights_data$origin)
+num_cores <- parallel::detectCores() - 1
+
+# Make cluster
+cl <- makeCluster(num_cores)
+clusterExport(cl, varlist = c("bootstrap_1", "flights_data"))
+
+boot_results <- parLapply(cl, unique_origins, function(airport) {
+  group_data <- subset(flights_data, origin == airport)
+  bootstrap_1(group_data, "dest", "air_time", 1000)
+})
+
+para_time <- system.time(parLapply(cl, unique_origins, function(airport) {
+  group_data <- subset(flights_data, origin == airport)
+  bootstrap_1(group_data, "dest", "air_time", 1000)
+}))
+
+names(boot_results) <- unique_origins
+stopCluster(cl)
+```
+
+```{r}
+CI <- confidence_interval(boot_results)
+CI <- as.data.frame(CI)
+CI
+```
+
+```{r}
+time_diff <- nonpara_time - para_time
+print(paste("The non-parallel method executing time is", nonpara_time["elapsed"], "seconds."))
+
+print(paste("The parallel method executing time is", para_time["elapsed"], "seconds."))
+
+print(paste("The parallel method executing time is", time_diff["elapsed"], "seconds faster than non-parallel method."))
+```
