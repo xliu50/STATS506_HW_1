@@ -1,0 +1,182 @@
+---
+title: "STATS506 Project"
+author: "Xuchen Liu"
+date: "2023-11-11"
+output: pdf_document
+---
+
+Github link: https://github.com/xliu50/STATS506_Homework
+
+```{r, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(corrplot)
+library(survey)
+library(spatstat)
+```
+
+```{r, warning=FALSE}
+data <- read.csv(file = "cbecs2018_final_public.csv")
+
+selected_cols <- c("REGION", "PBA", "YRCONC", "NFLOOR", "NWKER", "ELUSED", "NGUSED", "HT1", "HT2", "COOL", "WATR", "COOK", "FKUSED", "ELCNS", "NGCNS", "MFBTU", "FINALWT")
+
+finalwt_cols <- grepl("^FINALWT", names(data))
+
+all_cols <- c(selected_cols, names(data)[finalwt_cols])
+all_cols <- unique(all_cols)
+
+data_filtered <- subset(data, select = all_cols)
+data_filtered <- subset(data_filtered, PBA == 14 & ELUSED == 1) 
+data_filtered <- select(data_filtered, -ELUSED)
+
+missing_percentage <- sapply(data_filtered, function(x) sum(is.na(x)) / nrow(data_filtered) * 100)
+
+data_filtered[is.na(data_filtered)] <- 0
+
+#summary(data_filtered)
+
+
+```
+
+
+
+```{r}
+# Check the different types of col
+numerical_col <- c('NWKER','ELCNS','NGCNS','MFBTU')
+categorical_col <- c("REGION",'HT1','HT2','COOL','WATR','COOK','FKUSED')
+ordered_categorical_col <- c("YRCONC","NFLOOR")
+
+for(col in categorical_col) {
+    data_filtered[[col]] <- factor(data_filtered[[col]])
+}
+
+levels1 <- c("2","3","4","5","6","7","8","9")
+data_filtered$YRCONC <- factor(data_filtered$YRCONC, levels = levels1, ordered = TRUE)
+
+level2 <- c("1","2","3","4","5","6","7","8","9","994","995")
+data_filtered$NFLOOR <- factor(data_filtered$NFLOOR, levels = level2, ordered = TRUE)
+```
+
+```{r}
+par(mfrow = c(2, 2))  
+
+for (i in 1:length(numerical_col)) {
+  var <- numerical_col[i]
+  hist(data_filtered[[var]], 
+       main = paste("Histogram of", var), 
+       xlab = var, 
+       col = "blue",
+       breaks = 50)
+}
+par(mfrow = c(1, 1))
+```
+
+```{r}
+numerical_col <- c('NWKER','ELCNS','NGCNS','MFBTU')
+df_num <- data_filtered[numerical_col]
+
+df_long <- gather(df_num, key = "variable", value = "value")
+
+# Create the box plot
+ggplot(df_long, aes(x = variable, y = value)) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Find outliers
+outliers_list <- list()
+for(col in numerical_col) {
+    z_score <- (data_filtered[[col]] - mean(data_filtered[[col]], na.rm = TRUE)) / sd(data_filtered[[col]], na.rm = TRUE)
+    
+
+    outliers <- subset(data_filtered, abs(z_score) > 3)
+    outliers_list[[col]] <- outliers
+  
+    data_filtered <- data_filtered[abs(z_score) <= 3, ]
+}
+
+```
+
+```{r}
+# Create correlation map
+data_numeric <- data_filtered[, numerical_col]
+
+corr_matrix <- cor(data_numeric, use = "complete.obs") 
+
+corrplot(corr_matrix, method = "circle",
+         tl.col = "black", tl.srt = 45, 
+         addCoef.col = "black") 
+
+data_filtered <- select(data_filtered, -MFBTU)
+```
+
+```{r, warning=FALSE}
+
+samp_wts<-data_filtered$FINALWT
+rep_wts<-data_filtered[, grepl("^FINALWT", names(data_filtered))]
+rep_wts$FINALWT<-NULL
+samp_design<-svrepdesign(weights=samp_wts, repweights=rep_wts,
+type="JK2", mse=TRUE, data=data_filtered) 
+```
+
+
+```{r}
+# Calculate electricity consumption for educational buildings by different regions
+Region_results<-as.data.frame(svyby(~ELCNS, by=~REGION, samp_design,
+svytotal, na.rm=TRUE))
+Region_results$rse<-(Region_results$se/Region_results$ELCNS)*100
+Region_results
+```
+
+```{r}
+# Calculate electricity consumption for educational buildings by different floor
+Floor_results<-as.data.frame(svyby(~ELCNS, by=~NFLOOR, samp_design,
+svytotal, na.rm=TRUE))
+Floor_results$rse<-(Floor_results$se/Floor_results$ELCNS)*100
+Floor_results
+``` 
+```{r}
+# Calculate electricity consumption for educational buildings by different floor
+Year_results<-as.data.frame(svyby(~ELCNS, by=~YRCONC, samp_design,
+svytotal, na.rm=TRUE))
+Year_results$rse<-(Year_results$se/Year_results$ELCNS)*100
+Year_results
+```
+
+
+```{r, warning=FALSE}
+model1 <- svyglm(ELCNS ~ NFLOOR + REGION + YRCONC + NWKER + NGUSED+ HT1 + HT2 + COOL + WATR + COOK + FKUSED, data = data_filtered, design = samp_design)
+
+summary(model1)
+
+#Calculate RMSE
+predicted_values <- predict(model1)
+residuals <- data_filtered$ELCNS - predicted_values
+squared_residuals <- residuals^2
+mean_squared_residuals <- mean(squared_residuals)
+rmse <- sqrt(mean_squared_residuals)
+ELCNS_range <- max(data_filtered$ELCNS) - min(data_filtered$ELCNS)
+rmse <- rmse / ELCNS_range
+print(rmse)
+
+#Calculate MAPE
+percentage_errors <- abs((data_filtered$ELCNS - predicted_values) / data_filtered$ELCNS) * 100
+mape <- mean(percentage_errors)
+print(mape)
+
+#Residual plot
+fitted_vals <- fitted(model1)
+residuals_vals <- residuals(model1, type = "response")
+
+mean_residuals <- mean(residuals_vals)
+std_dev_residuals <- sd(residuals_vals)
+residuals <- (residuals_vals - mean_residuals) / std_dev_residuals
+
+plot(fitted_vals,residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Residual Plot", xlim = c(0, 2e06))
+abline(h = 0, col = "red")  
+```
+
+
+
